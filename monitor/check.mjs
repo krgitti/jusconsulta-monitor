@@ -257,6 +257,27 @@ async function main() {
       const movs = await buscarMovimentacoes(numero);
       console.log(`   ${movs.length} movimentação(ões) no e-SAJ`);
 
+      // Ignorar processos arquivados definitivamente
+      const IGNORAR_SE_ULTIMA = [
+        'arquivado definitivamente',
+        'arquivamento definitivo',
+        'processo arquivado',
+        'baixado definitivamente',
+      ];
+      const ultimaMov = (movs[0]?.titulo || '').toLowerCase();
+      if (IGNORAR_SE_ULTIMA.some(p => ultimaMov.includes(p))) {
+        console.log(`   ⏭️  Ignorado — processo arquivado: "${movs[0]?.titulo}"`);
+        // Salvar estado mas não alertar nunca mais
+        estado[numero] = { movs, atualizado: new Date().toISOString(), ignorado: true };
+        continue;
+      }
+
+      // Se já estava marcado como ignorado anteriormente, pular
+      if (estado[numero]?.ignorado) {
+        console.log(`   ⏭️  Ignorado (arquivado)`);
+        continue;
+      }
+
       const anterior = estado[numero] || { movs: [] };
       const keysAnt  = new Set(anterior.movs.map(m => `${m.data}|${m.titulo}`));
       const novas    = movs.filter(m => !keysAnt.has(`${m.data}|${m.titulo}`));
