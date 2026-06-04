@@ -175,6 +175,67 @@ async function salvarEstado(estado) {
 
 // ── E-mail ────────────────────────────────────────────────────────────────────
 
+async function enviarEmailNovoProcesso(numero, movs) {
+  const transport = createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+  });
+
+  const ultimaMov = movs[0];
+  const linhas = movs.slice(0, 5).map(m => `
+    <tr>
+      <td style="padding:8px 14px;border-bottom:1px solid #1e293b;color:#94a3b8;font-family:monospace;white-space:nowrap">${m.data}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #1e293b;color:#e2e8f0">${m.titulo}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:system-ui,sans-serif">
+<div style="max-width:580px;margin:0 auto;padding:28px 16px">
+<div style="background:#1e293b;border-radius:14px;overflow:hidden;border:1px solid #334155">
+  <div style="background:linear-gradient(135deg,#3b82f618,#1e293b);padding:22px 24px;border-bottom:1px solid #334155">
+    <span style="font-size:26px">⚖️</span>
+    <span style="color:#3b82f6;font-size:19px;font-weight:700;margin-left:10px">JusConsulta TJSP</span>
+    <h1 style="color:#fff;font-size:15px;margin:8px 0 0;font-weight:600">🆕 Novo processo encontrado</h1>
+  </div>
+  <div style="padding:22px 24px">
+    <div style="background:#0f172a;border-radius:9px;padding:11px 15px;border:1px solid #334155;margin-bottom:18px">
+      <div style="color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Número do processo</div>
+      <div style="color:#3b82f6;font-family:monospace;font-size:14px;font-weight:700">${numero}</div>
+    </div>
+    <p style="color:#94a3b8;font-size:13px;margin:0 0 14px">
+      Um novo processo vinculado ao seu CPF foi encontrado no TJSP. Últimas movimentações:
+    </p>
+    <table style="width:100%;border-collapse:collapse;background:#0f172a;border-radius:9px;overflow:hidden;border:1px solid #334155">
+      <thead><tr style="background:#1e293b">
+        <th style="padding:9px 14px;text-align:left;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Data</th>
+        <th style="padding:9px 14px;text-align:left;color:#64748b;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Movimentação</th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+    <div style="margin-top:22px;text-align:center">
+      <a href="https://esaj.tjsp.jus.br/cpopg/search.do?cbPesquisa=NUMPROC&dePesquisaNuUnificado=${encodeURIComponent(numero)}"
+         style="display:inline-block;background:#3b82f6;color:#fff;text-decoration:none;padding:11px 22px;border-radius:9px;font-weight:700;font-size:13px">
+        Ver no e-SAJ oficial ↗
+      </a>
+    </div>
+  </div>
+  <div style="padding:14px 24px;border-top:1px solid #1e293b;text-align:center">
+    <p style="color:#475569;font-size:11px;margin:0">JusConsulta TJSP — monitoramento automático via GitHub Actions</p>
+  </div>
+</div></div></body></html>`;
+
+  await transport.sendMail({
+    from: \`"JusConsulta TJSP" <\${GMAIL_USER}>\`,
+    to: EMAIL_TO,
+    subject: \`🆕 Novo processo encontrado — \${numero}\`,
+    html,
+  });
+  console.log(\`  ✉️  E-mail de novo processo enviado para \${EMAIL_TO}\`);
+}
+
 async function enviarEmail(numero, novas) {
   const transport = createTransport({
     host: 'smtp.gmail.com',
@@ -278,11 +339,18 @@ async function main() {
         continue;
       }
 
+      const isNovo = !estado[numero];
       const anterior = estado[numero] || { movs: [] };
       const keysAnt  = new Set(anterior.movs.map(m => `${m.data}|${m.titulo}`));
       const novas    = movs.filter(m => !keysAnt.has(`${m.data}|${m.titulo}`));
 
-      if (novas.length > 0) {
+      if (isNovo) {
+        // Processo encontrado pela primeira vez — notificar
+        console.log(`   🆕 Novo processo encontrado! Notificando...`);
+        await enviarEmailNovoProcesso(numero, movs);
+        houveAlteracao = true;
+      } else if (novas.length > 0) {
+        // Processo já conhecido com novas movimentações
         console.log(`   🚨 ${novas.length} nova(s) movimentação(ões) detectada(s)!`);
         novas.forEach(m => console.log(`      • ${m.data} — ${m.titulo}`));
         await enviarEmail(numero, novas);
