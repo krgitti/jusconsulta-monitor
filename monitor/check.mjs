@@ -177,7 +177,9 @@ async function salvarEstado(estado) {
 
 async function enviarEmail(numero, novas) {
   const transport = createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,        // TLS via STARTTLS
     auth: { user: GMAIL_USER, pass: GMAIL_PASS },
   });
 
