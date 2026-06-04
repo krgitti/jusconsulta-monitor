@@ -1,0 +1,36 @@
+name: Monitor TJSP
+
+on:
+  schedule:
+    # Roda às 7h, 12h e 18h (horário de Brasília = UTC-3)
+    - cron: '0 10,15,21 * * 1-5'   # seg–sex
+    - cron: '0 12 * * 6,0'          # sáb–dom (só ao meio-dia)
+  workflow_dispatch:                  # permite rodar manualmente a qualquer hora
+
+jobs:
+  verificar:
+    name: Verificar movimentações
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Rodar monitor
+        env:
+          MONITOR_CPF:      ${{ secrets.MONITOR_CPF }}
+          MONITOR_NOME:     ${{ secrets.MONITOR_NOME }}
+          MONITOR_EMAIL:    ${{ secrets.MONITOR_EMAIL }}
+          GMAIL_USER:       ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS:   ${{ secrets.GMAIL_APP_PASS }}
+          GIST_TOKEN:       ${{ secrets.GIST_TOKEN }}
+          GIST_ID:          ${{ secrets.GIST_ID }}
+        run: node monitor/check.mjs

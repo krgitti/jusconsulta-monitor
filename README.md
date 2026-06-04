@@ -1,68 +1,62 @@
-# JusConsulta Monitor — Backend
+# JusConsulta Monitor
 
-Backend de monitoramento de processos TJSP com notificações push (Firebase) e e-mail (Resend).
+Monitora processos no TJSP e envia e-mail ao detectar novas movimentações.  
+Roda **100% grátis** no GitHub Actions — sem servidor, sem cadastro externo.
 
-## Arquitetura
+## Como funciona
 
 ```
-Cron (4h/4h)
-    └── busca movimentações no e-SAJ (scraping público)
-        └── compara hash com estado salvo no SQLite
-            └── se mudou → envia Push (FCM) + E-mail (Resend)
+GitHub Actions (cron: 7h, 12h, 18h)
+  └── busca movimentações no e-SAJ (scraping público)
+      └── compara com estado salvo no GitHub Gist (JSON privado)
+          └── se houver novidade → envia e-mail via Gmail
 ```
 
-## Setup rápido no Render
+## Setup (5 minutos)
 
-1. Fork/clone este repositório
-2. Crie uma conta em [render.com](https://render.com)
-3. **New → Web Service → Connect repo**
-4. Configure as variáveis de ambiente (ver abaixo)
-5. Deploy automático
+### 1. Senha de app do Gmail
 
-## Variáveis de ambiente necessárias
+> Não usa sua senha normal — é uma senha separada só pra isso.
 
-| Variável | Descrição |
+1. Acesse: [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+2. Selecione **Outro (nome personalizado)** → digite `JusConsulta`
+3. Clique em **Gerar** → copie os 16 caracteres (sem espaços)
+
+> ⚠️ Verificação em duas etapas precisa estar ativa na conta Gmail.
+
+### 2. Configurar os Secrets no GitHub
+
+Acesse: **github.com/krgitti/jusconsulta-monitor → Settings → Secrets → Actions**
+
+| Secret | Valor |
 |---|---|
-| `RESEND_API_KEY` | Chave do [Resend](https://resend.com) |
-| `FROM_EMAIL` | E-mail remetente verificado no Resend |
-| `FIREBASE_SERVICE_ACCOUNT` | JSON do service account Firebase (minificado) |
-| `ADMIN_KEY` | Chave secreta para trigger manual |
-| `CRON_SCHEDULE` | Frequência (padrão: `0 */4 * * *`) |
+| `MONITOR_CPF` | Seu CPF (só números: `12345678900`) |
+| `MONITOR_EMAIL` | E-mail que receberá os alertas |
+| `GMAIL_USER` | Seu Gmail (`kleber@gmail.com`) |
+| `GMAIL_APP_PASS` | Senha de app gerada no passo 1 |
+| `GIST_TOKEN` | Seu GitHub PAT (o mesmo `ghp_...` já usado) |
+| `GIST_ID` | **Deixar vazio na 1ª execução** — o script cria e exibe o ID |
 
-## Como obter as credenciais
+### 3. Rodar pela primeira vez
 
-### Resend (e-mail)
-1. [resend.com](https://resend.com) → criar conta gratuita
-2. API Keys → Create API Key
-3. Domains → verificar domínio (ou usar `onboarding@resend.dev` para testes)
+**Actions → Monitor TJSP → Run workflow**
 
-### Firebase (push)
-1. [console.firebase.google.com](https://console.firebase.google.com)
-2. Criar projeto → Project Settings → Service Accounts
-3. **Generate new private key** → baixar JSON
-4. Minificar: `cat service-account.json | jq -c .`
-5. Colar o JSON minificado na variável `FIREBASE_SERVICE_ACCOUNT`
-
-## API
-
+No log da execução você verá:
 ```
-POST /api/monitor           Cadastrar CPF/CNPJ/número/nome para monitoramento
-GET  /api/monitor?email=... Listar monitoramentos de um e-mail
-DELETE /api/monitor/:id     Remover monitoramento
-PATCH /api/monitor/:id/fcm  Atualizar token FCM do dispositivo
-POST /api/monitor/run       Disparar ciclo manual (requer x-api-key header)
-GET  /health                Health check
+✅ Gist criado! Adicione este ID ao secret GIST_ID: abc123def456
 ```
 
-### Exemplo de cadastro
-```bash
-curl -X POST https://seu-backend.onrender.com/api/monitor \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tipo": "cpf",
-    "valor": "123.456.789-00",
-    "label": "Meus processos",
-    "email": "kleber@exemplo.com",
-    "fcm_token": "token-do-dispositivo"
-  }'
-```
+Copie esse ID e adicione como secret `GIST_ID`.  
+A partir daí, o monitoramento é totalmente automático.
+
+## Horários de verificação
+
+- **Seg–Sex:** 7h, 12h e 18h (horário de Brasília)
+- **Sáb–Dom:** 12h
+
+Para alterar, edite o `cron:` em `.github/workflows/monitor.yml`.
+
+## Monitorar por nome
+
+Além do CPF, é possível monitorar por nome da parte:  
+Adicione o secret `MONITOR_NOME` com o nome completo.
