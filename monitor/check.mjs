@@ -228,12 +228,12 @@ async function enviarEmailNovoProcesso(numero, movs) {
 </div></div></body></html>`;
 
   await transport.sendMail({
-    from: \`"JusConsulta TJSP" <\${GMAIL_USER}>\`,
+    from: `"JusConsulta TJSP" <\${GMAIL_USER}>`,
     to: EMAIL_TO,
-    subject: \`🆕 Novo processo encontrado — \${numero}\`,
+    subject: `🆕 Novo processo encontrado — \${numero}`,
     html,
   });
-  console.log(\`  ✉️  E-mail de novo processo enviado para \${EMAIL_TO}\`);
+  console.log(`  ✉️  E-mail de novo processo enviado para \${EMAIL_TO}`);
 }
 
 async function enviarEmail(numero, novas) {
